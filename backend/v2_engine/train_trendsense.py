@@ -33,8 +33,20 @@ class TrendSenseDataset(Dataset):
         print(f"   Rows loaded: {len(self.df)}")
 
         # Build feature matrix: SBERT embedding (384) + CLIP cohesion (1) = 385 dims
-        # Using np.stack instead of a Python loop — much faster for large datasets
-        embeddings = np.stack(self.df['fused_text_embedding'].values).astype(np.float32)
+        # Parquet may return embeddings as JSON strings, so parse those before stacking.
+        embedding_rows = []
+        for row_index, value in enumerate(self.df['fused_text_embedding'].values):
+            if isinstance(value, str):
+                value = json.loads(value)
+            embedding = np.asarray(value, dtype=np.float32)
+            if embedding.shape != (384,):
+                raise ValueError(
+                    f"Row {row_index} has embedding shape {embedding.shape}; expected (384,)."
+                )
+            if not np.isfinite(embedding).all():
+                raise ValueError(f"Row {row_index} contains a non-finite embedding value.")
+            embedding_rows.append(embedding)
+        embeddings = np.stack(embedding_rows)
         cohesions  = self.df['clip_cohesion_score'].values.astype(np.float32).reshape(-1, 1)
         X_np       = np.concatenate([embeddings, cohesions], axis=1)
 
@@ -129,10 +141,15 @@ def train_model():
     )
 
     # num_workers=0 on Windows (multiprocessing with CUDA causes issues on Win)
-    # Drop a final one-row training batch because BatchNorm needs at least two rows.
-    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True,  num_workers=0, pin_memory=True, drop_last=True)
-    val_loader   = DataLoader(val_dataset,   batch_size=64, shuffle=False, num_workers=0, pin_memory=True)
-    test_loader  = DataLoader(test_dataset,  batch_size=64, shuffle=False, num_workers=0, pin_memory=True)
+    batch_size = 64
+    # BatchNorm needs at least two rows, so drop only a one-row remainder if one occurs.
+    drop_singleton = len(train_dataset) % batch_size == 1
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True,
+        num_workers=0, pin_memory=True, drop_last=drop_singleton
+    )
+    val_loader  = DataLoader(val_dataset,  batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True)
 
     print(f"\n📊 Split: {train_n} train | {val_n} val | {test_n} test")
 
@@ -170,7 +187,8 @@ def train_model():
     for epoch in range(MAX_EPOCHS):
         # --- TRAIN ---
         model.train()
-        train_loss = 0.0
+        train_abs_error = 0.0
+        train_rows = 0
         for batch_X, batch_y in train_loader:
             batch_X, batch_y = batch_X.to(device), batch_y.to(device)
             optimizer.zero_grad()
@@ -179,19 +197,22 @@ def train_model():
             # Gradient clipping — prevents exploding gradients on bad batches
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-            train_loss += loss.item()
+            train_abs_error += loss.item() * batch_y.size(0)
+            train_rows += batch_y.size(0)
 
-        avg_train = train_loss / len(train_loader)
+        avg_train = train_abs_error / train_rows
 
         # --- VALIDATE ---
         model.eval()
-        val_loss = 0.0
+        val_abs_error = 0.0
+        val_rows = 0
         with torch.no_grad():
             for batch_X, batch_y in val_loader:
                 batch_X, batch_y = batch_X.to(device), batch_y.to(device)
-                val_loss += criterion(model(batch_X), batch_y).item()
+                val_abs_error += criterion(model(batch_X), batch_y).item() * batch_y.size(0)
+                val_rows += batch_y.size(0)
 
-        avg_val = val_loss / len(val_loader)
+        avg_val = val_abs_error / val_rows
         current_lr = optimizer.param_groups[0]['lr']
         history.append({
             "epoch": epoch + 1,
@@ -286,7 +307,7 @@ def train_model():
             labels={"value": "MAE (score points)", "variable": "Split"},
             title="TrendSense training and validation MAE",
         )
-        curve.write_html(os.path.join(results_dir, "training_curves.html"), include_plotlyjs=True)
+        curve.write_html(os.path.join(results_dir, "training_curves.html"), include_plotlyjs="directory")
 
         prediction_frame = pd.DataFrame({"actual": all_labels, "predicted": all_preds})
         scatter = px.scatter(
@@ -295,7 +316,7 @@ def train_model():
             title="TrendSense predictions on the held-out test set",
         )
         scatter.add_shape(type="line", x0=0, y0=0, x1=100, y1=100, line={"dash": "dash"})
-        scatter.write_html(os.path.join(results_dir, "test_predictions.html"), include_plotlyjs=True)
+        scatter.write_html(os.path.join(results_dir, "test_predictions.html"), include_plotlyjs="directory")
     except Exception as exc:
         print(f"⚠️ Could not write interactive graphs: {exc}")
 

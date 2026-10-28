@@ -1,0 +1,18 @@
+{
+  "dataset_path": "data\\trendsense_v8_master.parquet",
+  "rows": 6000,
+  "split": {
+    "train": 4200,
+    "validation": 900,
+    "test": 900,
+    "seed": 42
+  },
+  "best_validation_mae": 21.5015,
+  "test_mae": 20.8665,
+  "within_10_points_percent": 29.67,
+  "within_20_points_percent": 58.11,
+  "prediction_mean": 51.503,
+  "prediction_std": 20.9126,
+  "label_mean": 50.3733,
+  "checkpoint": "backend\\v2_engine\\trendsense_core_v5.pt"
+}

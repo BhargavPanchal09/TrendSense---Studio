@@ -34,7 +34,7 @@ The score is an estimate based on the training labels. It is not a measured prob
 - NVIDIA GPU with a CUDA-capable driver recommended. This project currently requires CUDA in `api.py` and stops at startup if CUDA is unavailable.
 - Ollama for local LLaVA and Qwen model calls.
 - Java 17 or 21 only when running the PySpark data pipeline.
-- A training dataset is needed to rebuild the predictor. The current checkout does not include the required transcript chunks, thumbnail collection, or `data/trendsense_v8_master.parquet`.
+- A training dataset is needed to rebuild the predictor. Dataset files are excluded from Git; this workstation has a local `data/trendsense_v8_master.parquet`, but a fresh clone must be given the dataset separately.
 
 The tested machine used Python 3.11.9, PyTorch 2.11.0+cu130, an RTX 4050 Laptop GPU with 6 GB VRAM, Node 24.15.0, and npm 11.12.1. Ollama models use quantized variants to fit the available GPU memory.
 
@@ -161,7 +161,7 @@ python -c "from pyspark.sql import SparkSession; s=SparkSession.builder.master('
 
 Spark is for dataset preparation. It is not required to run the frontend or `/analyze` API.
 
-## Rebuild and train (requires the source data)
+## Rebuild and train
 
 The current dataset builder expects:
 
@@ -169,13 +169,14 @@ The current dataset builder expects:
 - matching thumbnail image files under `data/thumbnails/`
 - output at `data/trendsense_v8_master.parquet`
 
-These source files are not included in this checkout. Do not run the builder or training script until you have them. Once present, from `backend` with `.venv` active:
+The public Git repository does not contain these bulk data files. A prepared 6,000-row master Parquet is available locally at `data/trendsense_v8_master.parquet` in the setup workstation. With `.venv` active, train from that master file from `backend`:
 
 ```powershell
 $env:PYTHONUTF8 = '1'
-python -X utf8 v2_engine/build_v5_dataset.py
-python -X utf8 v2_engine/train_trendsense.py
+& .\.venv\Scripts\python.exe -X utf8 v2_engine/train_trendsense.py
 ```
+
+To rebuild the master Parquet instead, first put transcript chunks in `data/checkpoints/` and their matching images in `data/thumbnails/`, then run `python -X utf8 v2_engine/build_v5_dataset.py` from `backend`.
 
 The training script uses a seeded 70% train / 15% validation / 15% test split, an MLP (385 → 256 → 128 → 64 → 1), MAE loss, Adam with weight decay, dropout, batch normalization, gradient clipping, learning-rate reduction, and early stopping. The held-out test set is used once for final reporting. Outputs and exact metrics are described in `docs/SEMESTER_REPORT.md`.
 
@@ -183,8 +184,8 @@ The training script uses a seeded 70% train / 15% validation / 15% test split, a
 
 - The dataset builder creates percentile labels from engagement rate. The result is a relative ranking score for the dataset, not a guaranteed future view count.
 - The entity tier multiplier is hand-set in the API and can raise the final score. Evaluate the base MLP separately from the post-processing multiplier.
-- The old README's `3,200+ videos` and `Test MAE ~21.01` statements were not verifiable from the files in this checkout, so they are not reported as measured results here.
-- Missing training data means no honest before/after accuracy claim or training graph can be generated yet. See `docs/SEMESTER_REPORT.md` for the report layout and required next step.
+- The current local v8 dataset has 6,000 rows. On the same seeded 900-row test split, the previous checkpoint had MAE 21.11 and the retrained checkpoint 20.87; the gain is small and tolerance rates are mixed. See `docs/SEMESTER_REPORT.md` and `docs/training_results/` for the full evaluation and graphs.
+- Training data and thumbnails are ignored by Git and must be supplied separately on a fresh clone. Do not report the 0–100 output as model accuracy or as the probability a video will go viral.
 
 ## License
 

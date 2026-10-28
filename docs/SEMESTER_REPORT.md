@@ -14,26 +14,38 @@
 
 The sample API result proves the software path runs. It does not measure prediction accuracy because the sample has no verified ground-truth label.
 
-## Accuracy report: fill after restoring the dataset
+## Accuracy report: same-split comparison
 
-The source files needed to build the training data were absent during this setup: `data/checkpoints/`, `data/thumbnails/`, and `data/trendsense_v8_master.parquet`. The earlier README's claimed 3,200+ rows and MAE 21.01 could not be reproduced from the available files. Keep the table below blank until a training run produces held-out metrics.
+The `OLD_FILES` archive supplied with this working copy contained the v8 master dataset, 19 transcript Parquet chunks, 6,000 thumbnails, and prior reports. The master dataset has 6,000 rows, no missing values in the training columns, 6,000 unique video IDs, and 6,000 matching thumbnail files. The features are already computed, so training used the master file directly instead of re-running the expensive image pipeline. The local archive and dataset are excluded from Git; do not add them to a public commit.
 
-| Version | Dataset and split | Test MAE (0–100 points; lower is better) | Within ±10 points | Within ±20 points | Notes |
-| --- | --- | ---: | ---: | ---: | --- |
-| Previous model | Verify the old checkpoint's original dataset and split | Not available in this checkout | Not available | Not available | Do not copy the old README's unverified MAE claim. |
-| Updated MLP | v8 dataset; seeded 70/15/15 split | Pending training data | Pending | Pending | `train_trendsense.py` writes these results after training. |
+Both checkpoints were evaluated against the same deterministic 900-row test split (seed 42) from the 6,000-row dataset. The new model was selected using validation MAE; the test set was not used for early stopping.
 
-Run from `backend` after restoring source files and activating `.venv`:
+| Model | Test MAE (points; lower is better) | Within ±10 points | Within ±20 points | Prediction mean |
+| --- | ---: | ---: | ---: | ---: |
+| Naive training-median baseline | 24.81 | 20.56% | 40.78% | 50.14 |
+| Previous checkpoint | 21.11 | 32.56% | 57.78% | 48.96 |
+| Retrained checkpoint | **20.87** | 29.67% | **58.11%** | 51.50 |
+
+The retrained checkpoint reduced MAE by **0.24 points (1.13%)** versus the previous checkpoint. Its ±20 rate rose by 0.33 percentage points, while its ±10 rate fell by 2.89 points. A paired bootstrap 95% interval for the MAE reduction was -0.49 to +0.95 points, which includes zero. Report this as a small observed change, not proof of a reliable accuracy improvement. Both MLP checkpoints beat the median-only baseline on MAE.
+
+The earlier performance PDF reported a test MAE of 20.97 and the same rounded tolerance rates. Re-evaluating the saved previous checkpoint with per-row MAE gives 21.11. The older trainer averaged batch MAEs equally, including a final batch of only four rows; the updated trainer computes the exact per-row MAE. Use the same per-row calculation for this comparison.
+
+The new run used 4,200 training rows, 900 validation rows, and 900 test rows. Best validation MAE was 21.50 at epoch 99; early stopping fired at epoch 114. The saved reports and graphs are in `docs/training_results/`:
+
+- [`before_after_results.json`](training_results/before_after_results.json) - exact same-split metrics and bootstrap interval.
+- [Interactive before/after comparison chart](training_results/before_after_comparison.html).
+- [`training_history.csv`](training_results/training_history.csv) and [training curves](training_results/training_curves.html) - train/validation loss by epoch.
+- [`test_predictions.csv`](training_results/test_predictions.csv) and [held-out predictions chart](training_results/test_predictions.html) - actual vs. predicted scores.
+- [`evaluation_results.json`](training_results/evaluation_results.json) - metrics for the retrained checkpoint.
+
+To repeat training from the already prepared master file, activate `.venv` and run from `backend`:
 
 ```powershell
 $env:PYTHONUTF8 = '1'
-python -X utf8 v2_engine/build_v5_dataset.py
-python -X utf8 v2_engine/train_trendsense.py
+& .\.venv\Scripts\python.exe -X utf8 v2_engine/train_trendsense.py
 ```
 
-The trainer saves `training_history.csv`, `test_predictions.csv`, `evaluation_results.json`, and interactive `training_curves.html` / `test_predictions.html` under `docs/training_results/`. The held-out test set is not used to pick the best epoch; validation MAE controls early stopping and checkpoint selection.
-
-For a fair before/after claim, evaluate both old and updated checkpoints on the same untouched test rows, with the same feature generation and label definition. Report the exact row counts, random seed, target definition, and test MAE. Do not compare scores from different data splits or targets as if they were directly equivalent. The numeric model score should be evaluated before the optional entity multiplier, and any final API score should be evaluated separately.
+To rebuild the master file from raw chunks, the builder expects the chunk Parquets in `data/checkpoints/` and images in `data/thumbnails/`. Those raw files are preserved under the ignored `OLD_FILES` archive in this workstation, not included in the public Git branch.
 
 ## Improvement options considered
 
@@ -44,7 +56,7 @@ For a fair before/after claim, evaluate both old and updated checkpoints on the 
 | Fine-tune SBERT or CLIP end to end | Could adapt representations to creator/video language and thumbnail semantics | Uncertain; often limited by labeled data size | High; days and careful tuning | More VRAM preferred; 6 GB is restrictive |
 | Add an LSTM/Transformer over transcripts or LoRA for Ollama models | Models sequence/context or improves generated advice | Does not automatically improve the scalar predictor; advice quality needs a separate evaluation | High; days | More VRAM or cloud GPU recommended |
 
-**Recommended:** first recover and validate the dataset, then use the current MLP with channel/time-aware splits and the improved training/evaluation artifacts. This choice fits the current 385-dimensional feature set and 6 GB GPU. Only fine-tune encoders after the dataset is available and a held-out baseline is recorded. LLM coaching should remain a separate qualitative feature unless it is given its own measured target and evaluation.
+**Recommended:** keep the current MLP for this demo, because it fits the 385-dimensional feature set and runs on the RTX 4050. The measured MAE change is small and the tolerance metrics are mixed, so do not claim a large accuracy gain. The next research step is to test a time- or channel-aware split and add representative low-engagement examples; only keep a change if validation improves and a fresh held-out test confirms it. LLM coaching remains a separate qualitative feature, not a source of numeric accuracy.
 
 ## What the model learns (viva explanation)
 
@@ -63,11 +75,12 @@ The v8 builder creates its target by ranking engagement rate as a percentile. Th
 7. **What do dropout and weight decay do?** They discourage the network from memorizing training examples, which can improve performance on unseen examples.
 8. **What is early stopping?** Training stops when validation error no longer improves, and the best validation checkpoint is kept.
 9. **What is the Big Data component?** PySpark transforms transcript and thumbnail data into Parquet features. Spark is used in offline preparation, not for each prediction request.
-10. **How do you know accuracy improved?** Compare both versions on the same held-out examples and label definition; report MAE and error-within-tolerance rates. No improvement claim is valid until this comparison is run.
+10. **How do you know accuracy changed?** Both checkpoints were compared on the same 900 held-out examples. MAE changed from 21.11 to 20.87, while the ±10 rate decreased; this is a small, mixed result rather than a strong improvement.
 
 ## Limitations to state clearly
 
-- The training source dataset is missing from the current checkout, so updated test metrics and accuracy graphs are pending.
-- The existing `.pt` checkpoint can run the API but cannot establish how it was trained or prove its accuracy.
+- The v8 target is a percentile of engagement within the collected successful-video dataset; it is not a probability of going viral or an absolute view prediction.
+- The MLP still has a large train/validation gap, indicating overfitting and limited predictive signal in title, hook, and cohesion features.
+- The saved v8 feature file and raw thumbnails are local-only and are not included in the public Git branch.
 - The optional trend multiplier is a manually chosen heuristic and can inflate scores independently of the learned model.
 - LLaVA descriptions and Qwen coaching are generated text; they can be wrong and are not part of the measured regression target.

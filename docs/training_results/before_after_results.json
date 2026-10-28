@@ -1,0 +1,47 @@
+{
+  "dataset": "data/trendsense_v8_master.parquet",
+  "rows": 6000,
+  "split": {
+    "train": 4200,
+    "validation": 900,
+    "test": 900,
+    "seed": 42
+  },
+  "baseline_checkpoint": "OLD_FILES/trendsense_core_v5_before_retrain.pt",
+  "updated_checkpoint": "backend/v2_engine/trendsense_core_v5.pt",
+  "before": {
+    "test_mae": 21.105670928955078,
+    "within_10_points_percent": 32.55555555555556,
+    "within_20_points_percent": 57.77777777777777,
+    "prediction_mean": 48.964141845703125,
+    "prediction_std": 23.176179885864258,
+    "label_mean": 50.37333297729492
+  },
+  "after": {
+    "test_mae": 20.866540908813477,
+    "within_10_points_percent": 29.666666666666668,
+    "within_20_points_percent": 58.111111111111114,
+    "prediction_mean": 51.50301742553711,
+    "prediction_std": 20.91257667541504,
+    "label_mean": 50.37333297729492
+  },
+  "test_mae_reduction_points": 0.23913002014160156,
+  "test_mae_reduction_percent": 1.1330131174059799,
+  "within_10_change_percentage_points": -2.8888888888888893,
+  "within_20_change_percentage_points": 0.3333333333333428,
+  "paired_bootstrap_95pct_ci_mae_reduction_points": [
+    -0.48826250061392784,
+    0.9494786366820334
+  ],
+  "median_baseline": {
+    "prediction": 50.141666666666666,
+    "test_mae": 24.80785185185185,
+    "within_10_points_percent": 20.555555555555554,
+    "within_20_points_percent": 40.77777777777778,
+    "prediction_mean": 50.141666666666666,
+    "prediction_std": 0.0,
+    "label_mean": 50.373333333333335
+  },
+  "best_epoch": 99,
+  "best_validation_mae": 21.501476101345485
+}
