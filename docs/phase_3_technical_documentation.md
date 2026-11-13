@@ -45,10 +45,10 @@ The system leverages local LLMs via the `ollama` Python package to bypass cloud 
 3.  **Strategic Reasoner (`llama3`):** Ingests the base score, cohesion score, vision description, and entity boost to generate a strict, 3-bullet-point strategic report (Score Analysis, Cohesion Fixes, Hook Rewrite).
 
 ### 2.4 Live Pulse Trend Discovery
-*   **Engine:** BERTopic (`trend_discovery.py`).
-*   **Components:** `all-MiniLM-L6-v2` (Embeddings), `KeyBERTInspired` (Representation), CountVectorizer (Stop-word removal).
-*   **Clustering Pipeline:** HDBSCAN + UMAP.
-*   **Velocity Math:** Calculates a dynamic velocity score using `(avg_score) * (sqrt(cluster_size + 1))` to float high-engagement, fast-moving niches.
+*   **Engine:** BERTopic (`live_pulse_clusters.py`) over current Google Trends and YouTube chart title snapshots.
+*   **Components:** SBERT text embeddings, UMAP dimensionality reduction, HDBSCAN density clustering, and c-TF-IDF topic words.
+*   **Output:** Groups related feed titles, shows representative source links, and reports distinct source and region support. Repeated YouTube chart observations may also include measured views per hour.
+*   **Limit:** This is a current-feed topic discovery view, not a calibrated popularity or virality score, and it does not currently offer Reddit top-day/week results.
 
 ---
 
@@ -63,9 +63,11 @@ The project utilizes a hybrid Out-of-Core and distributed Big Data approach to p
     *   Generates batched CLIP cohesion scores.
     *   **Crucial Update:** Implements *Percentile Rank Scoring* (`engagement_rate.rank(pct=True) * 100`) to properly distribute target virality scores from 0-100, fixing severe skew from previous iterations. Output: `trendsense_v7_master.parquet`.
 
-### 3.2 Live Velocity Stream (Reddit/MongoDB)
-*   **Reddit Harvester (`reddit_fetcher.py`):** Scrapes top daily posts from 22 curated cultural epicenters (e.g., `r/youtube`, `r/LivestreamFail`, `r/MemeEconomy`).
-*   **MongoDB Atlas (`mongo_client.py`):** The harvester acts idempotently, upserting data into the `live_trends` collection. This prevents Reddit API rate limits from breaking the dashboard.
+### 3.2 Current Live Pulse Sources
+*   **Google Trends RSS:** Supplies recent trending search titles for the selected regions.
+*   **YouTube Data API:** Supplies the sampled `mostPopular` chart and public view counts when configured.
+*   **Legacy Reddit code:** `backend/reddit_fetcher.py` is disconnected from the running dashboard. Reddit's current policy requires approved access, and research use must go through the Reddit for Researchers program. The project does not scrape Reddit JSON while that access is unavailable.
+*   **Snapshot history:** Repeated YouTube chart observations can measure the same video's views per hour after at least 30 minutes. This is observed item growth, not a topic forecast.
 
 ### 3.3 Static Telemetry (`generate_static_analytics.py`)
 To prevent heavy I/O operations at runtime, a static generator script precomputes metrics (medians, distributions, quartiles, Pearson correlation matrices) from the massive Parquet files and exports them to `static_analytics.json`. The FastAPI server serves this JSON directly to the frontend.

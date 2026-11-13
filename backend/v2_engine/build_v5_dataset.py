@@ -215,6 +215,14 @@ master_df = df[[
     'clip_cohesion_score', 'target_virality_score', 'fused_text_embedding'
 ]].copy()
 
+# Preserve outcome counts and any source dates/creator IDs for later temporal
+# evaluation. Missing metadata stays missing; never invent dates from row order.
+for column in ('view_count', 'like_count', 'comment_count', 'engagement_rate',
+               'published_at', 'publish_time', 'publishedAt', 'trending_date',
+               'observed_at', 'channel_id', 'channelId', 'region', 'category_id'):
+    if column in df.columns:
+        master_df[column] = df[column].values
+
 master_df.to_parquet(output_path, index=False)
 
 vram_used = torch.cuda.memory_allocated(0) // 1024**2

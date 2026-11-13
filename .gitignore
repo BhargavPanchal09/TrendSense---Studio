@@ -74,3 +74,8 @@ data/cookies.txt
 
 # Local archive containing training data and prior reports; do not publish the bulk files
 OLD_FILES/
+
+# Local live-chart observation history
+data/trend_observations.sqlite3*
+data/topic_search_interest.sqlite3*
+!docs/content_benchmark/*.csv

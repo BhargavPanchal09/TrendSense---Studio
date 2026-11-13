@@ -6,7 +6,7 @@ TrendSense is a local full-stack app that scores a proposed YouTube video from i
 
 1. The Next.js dashboard collects a title, hook, thumbnail, and optional creator or trend entities.
 2. FastAPI encodes title + hook with `all-MiniLM-L6-v2` (384 values), computes title-thumbnail cohesion with CLIP, and passes the resulting 385 values to the saved PyTorch MLP.
-3. If entities were supplied, Qwen classifies their trend tier and the API applies a fixed multiplier. This multiplier is a heuristic, not a learned model output.
+3. The API checks Google Trends, YouTube chart items, and Google News coverage across selectable regions. SBERT matches these items against the title and featured entities. Confirmed source matches can add a small, capped experimental lift to the displayed estimate; this is separate from the trained MLP and its validation metrics.
 4. LLaVA describes the thumbnail. Qwen writes the final coaching report. These generated responses do not train or validate the numeric predictor.
 5. The dashboard displays the score, cohesion, thumbnail description, and advice.
 
@@ -76,7 +76,7 @@ Expected on a compatible NVIDIA setup: `CUDA: 13.0`, `available: True`, and your
 
 ### 2. Install and start Ollama
 
-Install Ollama for Windows from [ollama.com/download/windows](https://ollama.com/download/windows), then open a new PowerShell terminal and pull the model tags used by the app:
+Install Ollama for Windows from [ollama.com/download/windows](https://ollama.com/download/windows), then pull the model tags used by the app once. The TrendSense backend now starts Ollama's local service automatically when the backend starts, so you do not need to open Ollama separately each time:
 
 ```powershell
 ollama pull llava:7b-v1.6-mistral-q2_K
@@ -89,7 +89,7 @@ For the standalone helper scripts, also pull:
 ollama pull llama3.2:3b-instruct-q4_K_M
 ```
 
-Verify the models and service:
+The backend reports whether each model is ready on its `/health` page. To verify the one-time model downloads manually, run:
 
 ```powershell
 ollama list
@@ -183,10 +183,23 @@ The training script uses a seeded 70% train / 15% validation / 15% test split, a
 ## Important interpretation notes
 
 - The dataset builder creates percentile labels from engagement rate. The result is a relative ranking score for the dataset, not a guaranteed future view count.
-- The entity tier multiplier is hand-set in the API and can raise the final score. Evaluate the base MLP separately from the post-processing multiplier.
+- Current Google search interest and news coverage differ from YouTube demand. Semantic matching uses a heuristic 0.55 cutoff, not a calibrated confidence threshold. The experimental live-evidence lift is capped at 15 points, is not calibrated, and is not included in the MLP's test MAE.
 - The current local v8 dataset has 6,000 rows. On the same seeded 900-row test split, the previous checkpoint had MAE 21.11 and the retrained checkpoint 20.87; the gain is small and tolerance rates are mixed. See `docs/SEMESTER_REPORT.md` and `docs/training_results/` for the full evaluation and graphs.
 - Training data and thumbnails are ignored by Git and must be supplied separately on a fresh clone. Do not report the 0–100 output as model accuracy or as the probability a video will go viral.
 
 ## License
 
 Distributed under the MIT License.
+
+See [live trend and deep learning changes](docs/LIVE_TRENDS_AND_DEEP_LEARNING.md) for the new pipeline and validation.
+
+To enable the YouTube live source, follow [Connect the live trend sources](docs/CONNECT_LIVE_SOURCES.md). Keep credentials in `backend/.env`. Reddit access is disabled pending approval under its current policy.
+
+## Latest model experiment and live growth
+
+See [the 29 October model upgrade report](docs/MODEL_UPGRADE_2026-10-29.md) for
+the reproducible four-model comparison, new neural ensemble, and measured live
+view growth. The existing MLP remains active (test MAE 20.87); the experimental
+ensemble scored 21.45 and was not promoted. Live chart observations are saved
+locally and require at least two samples 30 minutes apart to measure growth.
+This is not yet a validated worldwide forecasting model.

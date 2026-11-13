@@ -37,7 +37,7 @@ export default function SmoothScroller({
           import("gsap/ScrollTrigger"),
         ]);
 
-      gsap = gsapModule.gsap ?? gsapModule.default;
+      gsap = gsapModule.default;
       ScrollTrigger = ST;
 
       // Register plugin

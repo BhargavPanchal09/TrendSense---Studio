@@ -1,0 +1,72 @@
+{
+  "dataset_sha256": "0f685875995acfa6528db59fd60418beeaa094116028a3f0400915ed2caf54dd",
+  "rows": 6000,
+  "split": {
+    "train": 4200,
+    "validation": 900,
+    "test": 900,
+    "seed": 42
+  },
+  "excluded_duplicate_features": 0,
+  "validation_mae": {
+    "train_median": 24.644962310791016,
+    "ridge": 22.54603385925293,
+    "existing_mlp": 21.501476287841797,
+    "deep_ensemble": 21.442583084106445
+  },
+  "selected_on_validation": "deep_ensemble",
+  "ensemble_config": {
+    "width": 128,
+    "dropout": 0.35
+  },
+  "ensemble_seeds": [
+    17,
+    42,
+    83
+  ],
+  "ridge_alpha": 1000.0,
+  "test": {
+    "train_median": {
+      "mae": 24.807851873959105,
+      "rmse": 28.79459051110347,
+      "r2": -6.473427156095113e-05,
+      "within_10_percent": 20.555555555555554,
+      "within_20_percent": 40.77777777777778
+    },
+    "ridge": {
+      "mae": 22.33790397644043,
+      "rmse": 26.734421801902343,
+      "r2": 0.13791930675506592,
+      "within_10_percent": 24.666666666666668,
+      "within_20_percent": 49.888888888888886
+    },
+    "existing_mlp": {
+      "mae": 20.866540908813477,
+      "rmse": 26.467748053276438,
+      "r2": 0.15503191947937012,
+      "within_10_percent": 29.666666666666668,
+      "within_20_percent": 58.111111111111114
+    },
+    "deep_ensemble": {
+      "mae": 21.45354652404785,
+      "rmse": 26.928011398013826,
+      "r2": 0.12538909912109375,
+      "within_10_percent": 29.555555555555557,
+      "within_20_percent": 54.44444444444444
+    }
+  },
+  "paired_mae_improvement_95_percent_interval": [
+    -1.3035634398460387,
+    0.14172036871313945
+  ],
+  "limitations": [
+    "Retrospective reused test split; not a fresh prospective evaluation.",
+    "No timestamps/channel IDs: temporal and creator leakage cannot be assessed.",
+    "Targets are whole-dataset engagement percentiles, not future popularity.",
+    "Training text includes descriptions/transcripts; user titles/hooks may differ."
+  ],
+  "versions": {
+    "torch": "2.11.0+cu130",
+    "numpy": "2.4.2"
+  }
+}

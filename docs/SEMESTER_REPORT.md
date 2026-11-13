@@ -62,7 +62,7 @@ To rebuild the master file from raw chunks, the builder expects the chunk Parque
 
 The trainer concatenates a 384-number SBERT embedding of the title and hook with one CLIP title-thumbnail cohesion value. Its MLP maps the 385 inputs through 256, 128, and 64 hidden units to one regression score. ReLU adds nonlinearity; batch normalization stabilizes hidden activations; dropout randomly disables some units during training to reduce memorization. MAE is the average absolute distance from the target score. Adam updates weights using backpropagation; weight decay penalizes overly large weights; gradient clipping limits unusually large updates. The scheduler lowers the learning rate after validation stalls, and early stopping restores the checkpoint with the best validation MAE.
 
-The v8 builder creates its target by ranking engagement rate as a percentile. That target is relative to the collected dataset. It does not mean a video has that probability of going viral, nor does it predict an absolute view count. The API's fixed entity multipliers are hand-coded rules and are not learned by the MLP.
+The v8 builder creates its target by ranking engagement rate as a percentile. That target is relative to the collected dataset. It does not mean a video has that probability of going viral, nor does it predict an absolute view count. The live API keeps the MLP score visible and may add a separate experimental current-evidence lift of up to 15 points for matched YouTube chart, Google Trends, and multi-publisher Google News evidence. This lift is heuristic and excluded from the MLP test MAE. Reddit is disabled pending required access approval.
 
 ## Viva questions and short answers
 
@@ -82,5 +82,5 @@ The v8 builder creates its target by ranking engagement rate as a percentile. Th
 - The v8 target is a percentile of engagement within the collected successful-video dataset; it is not a probability of going viral or an absolute view prediction.
 - The MLP still has a large train/validation gap, indicating overfitting and limited predictive signal in title, hook, and cohesion features.
 - The saved v8 feature file and raw thumbnails are local-only and are not included in the public Git branch.
-- The optional trend multiplier is a manually chosen heuristic and can inflate scores independently of the learned model.
-- LLaVA descriptions and Qwen coaching are generated text; they can be wrong and are not part of the measured regression target.
+- Live evidence samples selected regions and communities. Source failures and missing credentials reduce coverage; similarity retrieval has not been calibrated as confidence.
+- LLaVA descriptions can be wrong. Qwen selects bounded advice options, while code renders the Coach score and current-evidence statements. Neither is part of the measured regression target.
